@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>UltraLink — Acoustic Data Link</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="background-effects">
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+</div>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="logo-icon">⚡</span> UltraLink</h1>
+      <div class="sub">Acoustic FSK data link — browser to browser, over air, no cables</div>
+    </div>
+    <div class="clock">MAIN MENU</div>
+  </header>
+
+  <div class="panel main-panel" data-tag="SYSTEM MODES">
+    <p class="hint" style="margin-top:0; margin-bottom: 24px;">Choose a mode to begin.</p>
+    <div class="btnrow">
+      <a href="/sender.html" class="no-underline"><button class="primary action-btn">
+        <span class="btn-icon">▲</span> SENDER
+      </button></a>
+      <a href="/receiver.html" class="no-underline"><button class="primary action-btn">
+        <span class="btn-icon">◉</span> RECEIVER
+      </button></a>
+      <a href="/tone-generator.html" class="no-underline"><button class="secondary action-btn">
+        <span class="btn-icon">∿</span> TONE GENERATOR
+      </button></a>
+    </div>
+  </div>
+
+  <div class="hint info-text">
+    Uses frequencies near 18.5–19.5 kHz — audible to most people as a faint high tone, inaudible to some.
+    Run on two devices: SEND on one, LISTEN on the other, held a few feet apart in a quiet room.
+  </div>
+</div>
+</body>
+</html>

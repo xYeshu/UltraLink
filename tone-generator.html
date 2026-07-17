@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TONE GENERATOR · UltraLink</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="background-effects">
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+</div>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="logo-icon">⚡</span> UltraLink</h1>
+      <div class="sub">Acoustic FSK data link — <a href="/" class="text-link">back to menu</a></div>
+    </div>
+    <div class="clock">MODE<br><b>∿ TONE GENERATOR</b></div>
+  </header>
+
+  <div class="panel" data-tag="TEST TOOL">
+    <p class="hint" style="margin-top:0;">Use this to manually test frequency detection on a receiver.</p>
+    
+    <label for="freqInput" style="margin-top:16px;">FREQUENCY: <span id="freqDisp" class="v" style="color:var(--primary);">18500</span> Hz</label>
+    <div class="input-group">
+      <input type="range" id="freqInput" min="17000" max="21000" step="10" value="18500">
+    </div>
+
+    <div class="btnrow" style="margin-top:24px;">
+      <button class="primary action-btn" id="playBtn">▶ PLAY TONE</button>
+      <button class="danger action-btn" id="stopBtn" disabled>■ STOP</button>
+    </div>
+  </div>
+</div>
+<script src="main.js" defer></script>
+</body>
+</html>
