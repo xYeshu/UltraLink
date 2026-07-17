@@ -2,83 +2,102 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>RECEIVER · UltraLink</title>
+<title>Receiver — UltraLink</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="background-effects">
-  <div class="glow-orb orb-1"></div>
-  <div class="glow-orb orb-2"></div>
-</div>
-
 <div class="wrap">
   <header>
     <div>
-      <h1><span class="logo-icon">⚡</span> UltraLink</h1>
-      <div class="sub">Acoustic FSK data link — <a href="/" class="text-link">back to menu</a></div>
+      <a href="/" class="brand"><span class="mark"></span>UltraLink</a>
+      <div class="sub"><a href="/" class="back-link">Back to menu</a></div>
     </div>
-    <div class="clock">MODE<br><b>◉ RECEIVER</b></div>
+    <div class="mode-label">Receiver</div>
   </header>
 
   <div class="grid2">
-    <!-- STEP 2/3: DETECTOR + DECODER -->
-    <div class="panel" data-tag="TONE DETECTOR / DECODER">
+    <!-- DETECTOR -->
+    <section>
+      <div class="section-head"><span class="section-title">Detector</span></div>
+
       <div class="readout">
-        <span class="k">MIC STATUS</span>
-        <span class="status-pill" id="micStatus">OFFLINE</span>
+        <span class="k">Microphone</span>
+        <span class="status-pill" id="micStatus">Offline</span>
       </div>
       <div class="readout">
-        <span class="k">DETECTED FREQUENCY</span>
+        <span class="k">Frequency</span>
         <span class="v" id="detFreq">— Hz</span>
       </div>
       <div class="readout">
-        <span class="k">SIGNAL STRENGTH</span>
+        <span class="k">Strength</span>
         <span class="v" id="detStrengthVal">0%</span>
       </div>
       <div class="meter"><div id="strengthBar"></div></div>
-      <div class="readout" style="margin-top:16px;">
-        <span class="k">DECODED BIT</span>
-        <span class="v amber" id="decodedBit">–</span>
-      </div>
-      <div class="btnrow" style="margin-top:16px;">
-        <button class="primary action-btn" id="listenBtn">◉ START LISTENING</button>
-        <button class="danger action-btn" id="stopListenBtn" disabled>■ STOP</button>
-      </div>
-      <canvas id="scope" height="80" style="margin-top:16px; border-radius: 8px;"></canvas>
-      <div class="hint">18420–18580 Hz → bit 0 &nbsp;·&nbsp; 19420–19580 Hz → bit 1.</div>
-    </div>
 
-    <!-- RECEIVER PIPELINE -->
-    <div class="panel" data-tag="RECEIVER PIPELINE">
+      <div class="readout" style="margin-top:16px;">
+        <span class="k">Last bit</span>
+        <span class="v amber" id="decodedBit">—</span>
+      </div>
+
+      <div class="btnrow" style="margin-top:16px;">
+        <button class="primary action-btn" id="listenBtn">Start listening</button>
+        <button class="danger action-btn" id="stopListenBtn" disabled>Stop</button>
+      </div>
+
+      <div class="spacer-sm"></div>
+
+      <label>Speed mode</label>
+      <div class="mode-group" id="speedMode" role="group" aria-label="Speed mode"></div>
+      <div class="hint">Must match the sender's mode. Changing it mid-receive re-syncs.</div>
+
+      <canvas id="scope" height="60" style="margin-top:18px;"></canvas>
+    </section>
+
+    <!-- PIPELINE -->
+    <section>
+      <div class="section-head"><span class="section-title">Pipeline</span></div>
+
       <div class="readout">
-        <span class="k">LINK STATE</span>
-        <span class="status-pill" id="linkState">IDLE</span>
+        <span class="k">Link state</span>
+        <span class="status-pill" id="linkState">Idle</span>
       </div>
-      <div class="pipeline" id="pipeline">
-        <div class="pipe-stage"><span class="lbl">FREQ</span><span class="val" id="pFreq">—</span></div>
+
+      <div class="pipeline" id="pipeline" style="margin-top:14px;">
+        <div class="pipe-stage"><span class="lbl">Freq</span><span class="val" id="pFreq">—</span></div>
         <span class="pipe-arrow">→</span>
-        <div class="pipe-stage"><span class="lbl">BIT</span><span class="val" id="pBit">—</span></div>
+        <div class="pipe-stage"><span class="lbl">Bit</span><span class="val" id="pBit">—</span></div>
         <span class="pipe-arrow">→</span>
-        <div class="pipe-stage"><span class="lbl">SYNC</span><span class="val" id="pSync">—</span></div>
+        <div class="pipe-stage"><span class="lbl">Sync</span><span class="val" id="pSync">—</span></div>
         <span class="pipe-arrow">→</span>
-        <div class="pipe-stage"><span class="lbl">BINARY</span><span class="val" id="pBinary">—</span></div>
+        <div class="pipe-stage"><span class="lbl">Binary</span><span class="val" id="pBinary">—</span></div>
         <span class="pipe-arrow">→</span>
-        <div class="pipe-stage"><span class="lbl">CHECKSUM</span><span class="val" id="pChecksum">—</span></div>
+        <div class="pipe-stage"><span class="lbl">Checksum</span><span class="val" id="pChecksum">—</span></div>
         <span class="pipe-arrow">→</span>
-        <div class="pipe-stage"><span class="lbl">TEXT</span><span class="val" id="pText">—</span></div>
+        <div class="pipe-stage"><span class="lbl">Text</span><span class="val" id="pText">—</span></div>
       </div>
-      <label style="margin-top:20px;">RECEIVED BIT STREAM</label>
+
+      <div class="spacer-sm"></div>
+      <label>Received bits</label>
       <div class="bitstream" id="rxBits">—</div>
-      <label style="margin-top:20px;">RECEIVED MESSAGE</label>
-      <div class="msgbox empty" id="rxMessage">Waiting for transmission...</div>
-      <label style="margin-top:20px;">EVENT LOG</label>
-      <div class="log" id="eventLog"></div>
-    </div>
+
+      <div class="spacer-sm"></div>
+      <label>Received message</label>
+      <div class="msgbox empty" id="rxMessage">Waiting for transmission…</div>
+    </section>
   </div>
+
+  <hr class="divider">
+
+  <!-- LOG -->
+  <section>
+    <div class="section-head"><span class="section-title">Log</span></div>
+    <div class="log" id="eventLog"></div>
+  </section>
+
 </div>
 <script src="main.js" defer></script>
 </body>

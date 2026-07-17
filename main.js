@@ -18,11 +18,14 @@
   // ---------- TUNABLE CONSTANTS ----------
   const FREQ_0 = 18500;
   const FREQ_1 = 19500;
-  const BIT_MS = 100;              // was 100ms in v1 — Goertzel tolerates a much
-                                   // shorter window for two tones this far apart,
-                                   // so this alone ~2x's your data rate.
-                                   // Push lower (try 30-40) once you've confirmed
-                                   // reliability on your mic/speaker pair.
+  let BIT_MS = 40;                 // ms per bit — the dominant speed lever (1000/BIT_MS
+                                   // ≈ raw bits/sec). Goertzel tolerates a much shorter
+                                   // window for two tones this far apart; 30–50ms works
+                                   // on most mic/speaker pairs. NOTE: must match on BOTH
+                                   // sender and receiver — RX samples on this boundary.
+                                   // Selected at runtime via the SPEED MODE buttons
+                                   // (FAST 30 / BALANCED 40 / RELIABLE 50), persisted to
+                                   // localStorage so reloads keep the choice.
   const SUB_MS = 10;               // resolution used while hunting for the preamble
   const PREAMBLE = "1010101010101010"; // 16 bits
   const START_MARKER = "11111111";
@@ -55,11 +58,12 @@
   let rxExpectedLen = 0;
   let rxDataBits = "";
   let rxByteCount = 0;
+  let rxPacked = false;              // per-packet: was this frame sent 6-bit packed?
 
   // ---------- DOM ----------
   const $ = id => document.getElementById(id);
-  const toneFreq = $("toneFreq"), toneFreqVal = $("toneFreqVal");
-  const playToneBtn = $("playToneBtn"), stopToneBtn = $("stopToneBtn");
+  const toneFreq = $("freqInput"), toneFreqVal = $("freqDisp");
+  const playToneBtn = $("playBtn"), stopToneBtn = $("stopBtn");
   const micStatus = $("micStatus"), detFreq = $("detFreq");
   const detStrengthVal = $("detStrengthVal"), strengthBar = $("strengthBar");
   const decodedBit = $("decodedBit");
@@ -71,6 +75,91 @@
   const pFreq = $("pFreq"), pBit = $("pBit"), pSync = $("pSync"),
         pBinary = $("pBinary"), pChecksum = $("pChecksum"), pText = $("pText");
   const rxBitsEl = $("rxBits"), rxMessage = $("rxMessage"), eventLog = $("eventLog");
+  const speedModeWrap = $("speedMode");
+
+  // Speed modes — confirmed-good bit periods (in ms) for typical mic/speaker pairs.
+  // Each is a multiple of SUB_MS so the oversample math stays integer.
+  const SPEED_MODES = [
+    { id: "fast",      label: "FAST",      ms: 30, desc: "33 bps" },
+    { id: "balanced",  label: "BALANCED",  ms: 40, desc: "25 bps" },
+    { id: "reliable",  label: "RELIABLE",  ms: 50, desc: "20 bps" }
+  ];
+  const SPEED_DEFAULT_ID = "balanced";
+  const SPEED_STORAGE_KEY = "ultramodem.speedMode";
+
+  function loadSpeedModeId(){
+    const saved = localStorage.getItem(SPEED_STORAGE_KEY);
+    return SPEED_MODES.some(m => m.id === saved) ? saved : SPEED_DEFAULT_ID;
+  }
+  // Apply BIT_MS for a mode: update derived sample counts and, if live, resync the
+  // demod so the next bit boundary is read at the new spacing.
+  function applySpeedMode(modeId, opts){
+    const mode = SPEED_MODES.find(m => m.id === modeId) ||
+                 SPEED_MODES.find(m => m.id === SPEED_DEFAULT_ID);
+    BIT_MS = mode.ms;
+    if(sampleRate){
+      bitSamples = Math.round(sampleRate * BIT_MS / 1000);
+      subStepSamples = Math.round(sampleRate * SUB_MS / 1000);
+      // Re-anchor the hunt/lock windows at the new spacing.
+      if(listening){ resetDemodState(); rxState = "HUNTING"; }
+    }
+    // Reflect selection in the button group.
+    if(speedModeWrap){
+      speedModeWrap.querySelectorAll("[data-mode]").forEach(b => {
+        const on = b.dataset.mode === mode.id;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+    if(opts && opts.persist) localStorage.setItem(SPEED_STORAGE_KEY, mode.id);
+    return mode;
+  }
+  if(speedModeWrap){
+    // Build the segmented button group once from SPEED_MODES.
+    SPEED_MODES.forEach(m => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mode-btn";
+      b.dataset.mode = m.id;
+      b.innerHTML = `<span class="mode-label">${m.label}</span>` +
+                    `<span class="mode-desc">${m.ms}ms · ${m.desc}</span>`;
+      b.addEventListener("click", () => {
+        const mode = applySpeedMode(m.id, { persist: true });
+        log(`Speed: ${mode.label} (${mode.ms}ms/bit, ~${mode.desc}). ` +
+            `Make sure the OTHER device uses the same mode.`, "info");
+      });
+      speedModeWrap.appendChild(b);
+    });
+  }
+  // Initial apply from saved/default.
+  applySpeedMode(loadSpeedModeId());
+
+  // ---------- COMPRESSION TOGGLE (6-bit packing) ----------
+  // Sender-side opt-in (default OFF = original 8-bit behavior). The receiver
+  // AUTO-DETECTS the mode per packet via bit 7 of the LENGTH field (the 0x80
+  // bit is unused since messages cap at 64 bytes), so the receiver needs no
+  // toggle — flip it on the sender anytime.
+  let compress = false;
+  const COMPRESS_STORAGE_KEY = "ultramodem.compress";
+  const compressToggle = $("compressToggle");
+  function setCompress(on, opts){
+    compress = !!on;
+    if(compressToggle){
+      compressToggle.setAttribute("aria-pressed", compress ? "true" : "false");
+      compressToggle.classList.toggle("active", compress);
+      const st = compressToggle.querySelector(".toggle-state");
+      if(st) st.textContent = compress ? "ON" : "OFF";
+    }
+    if(opts && opts.persist) localStorage.setItem(COMPRESS_STORAGE_KEY, compress ? "1" : "0");
+  }
+  if(compressToggle){
+    setCompress(localStorage.getItem(COMPRESS_STORAGE_KEY) === "1");
+    compressToggle.addEventListener("click", () => {
+      setCompress(!compress, { persist: true });
+      log(`Compression ${compress ? "ON (6-bit packing)" : "OFF (8-bit raw)"}. ` +
+          `Receiver auto-detects — no change needed there.`, "info");
+    });
+  }
 
   function log(msg, cls){
     if (!eventLog) return;
@@ -362,21 +451,56 @@
   }
 
   // ================= PACKET BUILD (TX) =================
-  function textToBits(text){
-    let bits = "";
-    for(let i=0;i<text.length;i++) bits += text.charCodeAt(i).toString(2).padStart(8,"0");
-    return bits;
+  // 6-bit packed alphabet: 10 digits + 26 letters + space + 27 punctuation = 64
+  // symbols, so each char costs 6 bits instead of 8 (~25% smaller payload).
+  // Uppercase is folded to lowercase on send (round-trips as lowercase) — the one
+  // lossy step, which is what holds the alphabet to 6 bits.
+  const PACK_ALPHABET = `0123456789abcdefghijklmnopqrstuvwxyz .,?!'":;-_()@/+=#$%&*<>[]{}`;
+  const PACK_LOOKUP = {};
+  for(let i=0;i<PACK_ALPHABET.length;i++) PACK_LOOKUP[PACK_ALPHABET[i]] = i;
+
+  // 6-bit symbol index for a char, or -1 if unsupported.
+  function charToSymbol(ch){ return PACK_LOOKUP[ch.toLowerCase()] ?? -1; }
+
+  // Encode text to packed symbols + a 6-bits-per-symbol bit string.
+  // Returns { symbols, bits } on success or { error } if any char is unsupported.
+  function encodeText(text){
+    const symbols = []; let bits = "";
+    for(let i=0;i<text.length;i++){
+      const s = charToSymbol(text[i]);
+      if(s < 0) return { error: `Unsupported character "${text[i]}" — use letters, digits, space, or basic punctuation.` };
+      symbols.push(s);
+      bits += s.toString(2).padStart(6,"0");
+    }
+    return { symbols, bits };
   }
-  function byteToBits(n){ return (n & 0xFF).toString(2).padStart(8,"0"); }
-  function xorChecksum(text){
+  // XOR checksum over the transmitted symbol indices (not raw char codes).
+  function symbolsChecksum(symbols){
     let c = 0;
-    for(let i=0;i<text.length;i++) c ^= text.charCodeAt(i);
+    for(let i=0;i<symbols.length;i++) c ^= symbols[i];
     return c & 0xFF;
   }
+  function byteToBits(n){ return (n & 0xFF).toString(2).padStart(8,"0"); }
+  // buildPacket branches on the compress flag. The 0x80 bit of the LENGTH field
+  // (unused, since messages cap at 64) signals the mode so the RX auto-detects.
   function buildPacket(text){
-    const lengthBits = byteToBits(text.length);
-    const dataBits = textToBits(text);
-    const checksum = xorChecksum(text);
+    const lengthBits = byteToBits(text.length | (compress ? 0x80 : 0x00));
+    if(!compress){
+      // Original 8-bit raw path.
+      let dataBits = "";
+      for(let i=0;i<text.length;i++) dataBits += text.charCodeAt(i).toString(2).padStart(8,"0");
+      let checksum = 0;
+      for(let i=0;i<text.length;i++) checksum ^= text.charCodeAt(i);
+      checksum &= 0xFF;
+      return {
+        full: PREAMBLE + START_MARKER + lengthBits + dataBits + byteToBits(checksum) + END_MARKER,
+        lengthBits, dataBits, checksumBits: byteToBits(checksum), checksum
+      };
+    }
+    const enc = encodeText(text);
+    if(enc.error) return { error: enc.error };
+    const { symbols, bits: dataBits } = enc;
+    const checksum = symbolsChecksum(symbols);
     const checksumBits = byteToBits(checksum);
     return {
       full: PREAMBLE + START_MARKER + lengthBits + dataBits + checksumBits + END_MARKER,
@@ -390,6 +514,11 @@
     if(!text){ txLen.textContent = "0 bytes"; txChecksum.textContent = "—"; txBits.textContent = "—"; return; }
     const pkt = buildPacket(text);
     if (txLen) txLen.textContent = text.length + " bytes";
+    if(pkt.error){
+      if (txChecksum) txChecksum.textContent = pkt.error;
+      if (txBits) txBits.textContent = "—";
+      return;
+    }
     if (txChecksum) txChecksum.textContent = pkt.checksumBits + ` (${pkt.checksum})`;
     if (txBits) txBits.textContent = pkt.full;
   }
@@ -401,6 +530,7 @@
     const ctx = getCtx();
     if(ctx.state === "suspended") await ctx.resume();
     const pkt = buildPacket(text);
+    if(pkt.error){ log(pkt.error, "bad"); return; }
     const bits = pkt.full;
 
     log(`Transmitting "${text}" — ${bits.length} bits @ ${BIT_MS}ms/bit (${(bits.length*BIT_MS/1000).toFixed(2)}s)`, "info");
@@ -428,7 +558,7 @@
   function resetReceiverState(){
     rxRollingBits = "";
     rxState = "HUNTING";
-    rxByteBuffer = ""; rxDataBits = ""; rxExpectedLen = 0; rxByteCount = 0;
+    rxByteBuffer = ""; rxDataBits = ""; rxExpectedLen = 0; rxByteCount = 0; rxPacked = false;
     if (pSync) pSync.textContent = "—";
     if (pBinary) pBinary.textContent = "—";
     if (pChecksum) pChecksum.textContent = "—";
@@ -458,24 +588,29 @@
 
     if(rxState === "LENGTH"){
       if(rxByteBuffer.length === 8){
-        rxExpectedLen = parseInt(rxByteBuffer, 2);
+        const lengthField = parseInt(rxByteBuffer, 2);
+        rxPacked = (lengthField & 0x80) !== 0;          // bit 7 = compression flag
+        rxExpectedLen = lengthField & 0x7F;              // low 7 bits = char/symbol count
         rxByteBuffer = ""; rxDataBits = ""; rxByteCount = 0;
         if(rxExpectedLen === 0 || rxExpectedLen > 64){
           log(`Suspicious length ${rxExpectedLen}. Re-hunting.`, "bad");
           reHunt(); return;
         }
         rxState = "DATA";
-        linkState.textContent = `READING DATA (0/${rxExpectedLen} bytes)`;
+        linkState.textContent = `READING DATA (0/${rxExpectedLen} ${rxPacked ? "symbols" : "bytes"}${rxPacked ? ", 6-bit" : ""})`;
       }
       return;
     }
 
     if(rxState === "DATA"){
       rxDataBits += bit;
-      if(rxByteBuffer.length === 8){
-        rxByteCount++; rxByteBuffer = "";
+      rxByteBuffer += bit; // kept for diagnostics; counting uses rxDataBits
+      const bitsPerSymbol = rxPacked ? 6 : 8;
+      if(rxDataBits.length % bitsPerSymbol === 0){
+        rxByteCount = rxDataBits.length / bitsPerSymbol;
+        rxByteBuffer = "";
         if (pBinary) pBinary.textContent = rxDataBits;
-        if (linkState) linkState.textContent = `READING DATA (${rxByteCount}/${rxExpectedLen} bytes)`;
+        if (linkState) linkState.textContent = `READING DATA (${rxByteCount}/${rxExpectedLen} ${rxPacked ? "symbols" : "bytes"})`;
         if(rxByteCount === rxExpectedLen){
           rxState = "CHECKSUM"; rxByteBuffer = "";
           linkState.textContent = "READING CHECKSUM";
@@ -487,8 +622,20 @@
     if(rxState === "CHECKSUM"){
       if(rxByteBuffer.length === 8){
         const receivedChecksum = parseInt(rxByteBuffer, 2);
-        const decodedText = bitsToText(rxDataBits);
-        const expectedChecksum = xorChecksum(decodedText);
+        let decodedText, expectedChecksum;
+        if(rxPacked){
+          const decoded = bitsToText(rxDataBits);
+          decodedText = decoded.text;
+          expectedChecksum = symbolsChecksum(decoded.symbols);
+        } else {
+          // Original 8-bit raw decode.
+          decodedText = "";
+          for(let i=0;i+8<=rxDataBits.length;i+=8)
+            decodedText += String.fromCharCode(parseInt(rxDataBits.slice(i,i+8), 2));
+          expectedChecksum = 0;
+          for(let i=0;i<decodedText.length;i++) expectedChecksum ^= decodedText.charCodeAt(i);
+          expectedChecksum &= 0xFF;
+        }
         if (pChecksum) pChecksum.textContent = rxByteBuffer + ` (${receivedChecksum})`;
         if(receivedChecksum === expectedChecksum){
           if (pText) pText.textContent = decodedText;
@@ -520,10 +667,15 @@
     linkState.textContent = "HUNTING FOR PREAMBLE"; linkState.className = "status-pill hunting";
   }
 
+  // Decode a 6-bit-packed bit string back to text + symbol indices.
   function bitsToText(bits){
-    let out = "";
-    for(let i=0;i+8<=bits.length;i+=8) out += String.fromCharCode(parseInt(bits.slice(i,i+8), 2));
-    return out;
+    let out = "", symbols = [];
+    for(let i=0;i+6<=bits.length;i+=6){
+      const s = parseInt(bits.slice(i,i+6), 2);
+      symbols.push(s);
+      out += PACK_ALPHABET[s] || "?";
+    }
+    return { text: out, symbols };
   }
 
   function renderRollingBits(){

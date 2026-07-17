@@ -2,47 +2,43 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>UltraLink — Acoustic Data Link</title>
+<title>UltraLink</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="background-effects">
-  <div class="glow-orb orb-1"></div>
-  <div class="glow-orb orb-2"></div>
-</div>
-
 <div class="wrap">
   <header>
     <div>
-      <h1><span class="logo-icon">⚡</span> UltraLink</h1>
-      <div class="sub">Acoustic FSK data link — browser to browser, over air, no cables</div>
+      <a href="/" class="brand"><span class="mark"></span>UltraLink</a>
+      <div class="sub">Acoustic data link — browser to browser, over air</div>
     </div>
-    <div class="clock">MAIN MENU</div>
+    <div class="mode-label">Menu</div>
   </header>
 
-  <div class="panel main-panel" data-tag="SYSTEM MODES">
-    <p class="hint" style="margin-top:0; margin-bottom: 24px;">Choose a mode to begin.</p>
-    <div class="btnrow">
-      <a href="/sender.html" class="no-underline"><button class="primary action-btn">
-        <span class="btn-icon">▲</span> SENDER
-      </button></a>
-      <a href="/receiver.html" class="no-underline"><button class="primary action-btn">
-        <span class="btn-icon">◉</span> RECEIVER
-      </button></a>
-      <a href="/tone-generator.html" class="no-underline"><button class="secondary action-btn">
-        <span class="btn-icon">∿</span> TONE GENERATOR
-      </button></a>
-    </div>
+  <div class="intro">
+    <h2>Send data through sound.</h2>
+    <p>Two devices. No network, no cables, no pairing. Pick a role for each and hold them a few feet apart in a quiet room.</p>
   </div>
 
-  <div class="hint info-text">
-    Uses frequencies near 18.5–19.5 kHz — audible to most people as a faint high tone, inaudible to some.
-    Run on two devices: SEND on one, LISTEN on the other, held a few feet apart in a quiet room.
-  </div>
+  <section>
+    <div class="section-head"><span class="section-title">Select a role</span></div>
+    <div class="btnrow">
+      <a href="/sender.html" class="btn primary action-btn">Sender</a>
+      <a href="/receiver.html" class="btn action-btn">Receiver</a>
+      <a href="/tone-generator.html" class="btn action-btn">Tone generator</a>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section>
+    <div class="section-head"><span class="section-title">How it works</span></div>
+    <p class="info-text">Messages are encoded as binary FSK tones near 18.5–19.5 kHz — a faint high pitch most people can hear, though some cannot. Open the sender on one device, the receiver on another, and transmit.</p>
+  </section>
 </div>
 </body>
 </html>

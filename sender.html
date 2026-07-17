@@ -2,54 +2,77 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SENDER · UltraLink</title>
+<title>Sender — UltraLink</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="background-effects">
-  <div class="glow-orb orb-1"></div>
-  <div class="glow-orb orb-2"></div>
-</div>
-
 <div class="wrap">
   <header>
     <div>
-      <h1><span class="logo-icon">⚡</span> UltraLink</h1>
-      <div class="sub">Acoustic FSK data link — <a href="/" class="text-link">back to menu</a></div>
+      <a href="/" class="brand"><span class="mark"></span>UltraLink</a>
+      <div class="sub"><a href="/" class="back-link">Back to menu</a></div>
     </div>
-    <div class="clock">MODE<br><b>▲ SENDER</b></div>
+    <div class="mode-label">Sender</div>
   </header>
 
-  <!-- TRANSMITTER -->
-  <div class="panel" data-tag="TRANSMITTER">
-    <label for="txText">MESSAGE</label>
-    <div class="input-group">
-      <input type="text" id="txText" placeholder="Hello" value="Hello" maxlength="64">
+  <!-- MESSAGE -->
+  <section>
+    <div class="section-head"><span class="section-title">Message</span></div>
+    <label for="txText">Text <span class="val-inline" id="txLen">0 bytes</span></label>
+    <input type="text" id="txText" placeholder="Hello" value="Hello" maxlength="64">
+    <div class="hint">Max 64 characters. Compression accepts letters, digits, space, and basic punctuation; uppercase becomes lowercase.</div>
+  </section>
+
+  <!-- OPTIONS -->
+  <section>
+    <div class="section-head"><span class="section-title">Options</span></div>
+
+    <label>Speed mode</label>
+    <div class="mode-group" id="speedMode" role="group" aria-label="Speed mode"></div>
+    <div class="hint">Faster is more error-prone. Must match the receiver's mode.</div>
+
+    <div class="spacer-sm"></div>
+
+    <label>Compression</label>
+    <div class="btnrow">
+      <button type="button" class="toggle-btn" id="compressToggle" aria-pressed="false">
+        <span class="toggle-label">6-bit packing</span>
+        <span class="toggle-state">OFF</span>
+      </button>
     </div>
-    <div class="btnrow" style="margin-top:16px;">
-      <button class="primary action-btn" id="sendBtn">▲ SEND MESSAGE</button>
+    <div class="hint">Reduces payload by about 25%. The receiver auto-detects, so no change is needed there.</div>
+  </section>
+
+  <!-- SEND -->
+  <section>
+    <div class="btnrow">
+      <button class="primary action-btn" id="sendBtn">Send message</button>
     </div>
-    <div class="readout" style="margin-top:20px;">
-      <span class="k">PACKET LENGTH</span>
-      <span class="v" id="txLen">0 bytes</span>
-    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- PACKET -->
+  <section>
+    <div class="section-head"><span class="section-title">Packet</span></div>
     <div class="readout">
-      <span class="k">CHECKSUM (XOR)</span>
+      <span class="k">Checksum</span>
       <span class="v" id="txChecksum">—</span>
     </div>
-    <label style="margin-top:20px;">FULL BIT STREAM</label>
+    <div class="spacer-sm"></div>
+    <label>Bit stream</label>
     <div class="bitstream" id="txBits">—</div>
-    <div class="hint">Preamble · start · length · data · checksum · end — each bit held for 100ms.</div>
-  </div>
+  </section>
 
-  <div class="panel" data-tag="LOG">
-    <label>EVENT LOG</label>
+  <!-- LOG -->
+  <section>
+    <div class="section-head"><span class="section-title">Log</span></div>
     <div class="log" id="eventLog"></div>
-  </div>
+  </section>
 
 </div>
 <script src="main.js" defer></script>
