@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chat — UltraLink</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a href="/" class="brand"><span class="mark"></span>UltraLink</a>
+      <div class="sub"><a href="/" class="back-link">Back to menu</a></div>
+    </div>
+    <div class="mode-label">Chat</div>
+  </header>
+
+  <div class="intro">
+    <h2>Two-way chat.</h2>
+    <p>Half-duplex over sound: you take turns. Hold Transmit to send; the link goes quiet while you do, then listens again. Open this page on both devices.</p>
+  </div>
+
+  <!-- STATUS BANNER -->
+  <div class="chat-status offline" id="chatStatus">
+    <span class="dot"></span>
+    <span id="chatStatusText">Click Connect to start listening</span>
+  </div>
+
+  <!-- CONVERSATION LOG -->
+  <section>
+    <div class="section-head"><span class="section-title">Conversation</span></div>
+    <div class="chat-log" id="chatLog"></div>
+  </section>
+
+  <!-- COMPOSE -->
+  <section>
+    <div class="section-head"><span class="section-title">Compose</span></div>
+    <label for="txText">Message <span class="val-inline" id="txLen">0 bytes</span></label>
+    <div class="compose">
+      <input type="text" id="txText" placeholder="Type a message…" value="" maxlength="64">
+    </div>
+    <div class="hint">Max 64 characters. Enter to send. Compression accepts letters, digits, space, basic punctuation; uppercase becomes lowercase.</div>
+
+    <div class="spacer-sm"></div>
+
+    <label>Speed mode</label>
+    <div class="mode-group" id="speedMode" role="group" aria-label="Speed mode"></div>
+    <div class="hint">Faster is more error-prone. Both devices should use the same mode.</div>
+
+    <div class="spacer-sm"></div>
+
+    <label>Compression</label>
+    <div class="btnrow">
+      <button type="button" class="toggle-btn" id="compressToggle" aria-pressed="false">
+        <span class="toggle-label">6-bit packing</span>
+        <span class="toggle-state">OFF</span>
+      </button>
+    </div>
+    <div class="hint">Reduces payload by about 25%. The other side auto-detects.</div>
+  </section>
+
+  <!-- CONNECT / TRANSMIT -->
+  <section>
+    <button class="ptt" id="connectBtn">Connect — start listening</button>
+    <button class="ptt" id="ptt" style="display:none;">Hold to transmit</button>
+  </section>
+
+  <hr class="divider">
+
+  <!-- DIAGNOSTICS (collapsible — the raw engine readouts + waterfall) -->
+  <details class="chat-diagnostics">
+    <summary>Show signal diagnostics</summary>
+    <div class="diag-grid">
+      <div>
+        <div class="section-head"><span class="section-title">Detector</span></div>
+        <div class="readout"><span class="k">Microphone</span><span class="status-pill" id="micStatus">Offline</span></div>
+        <div class="readout"><span class="k">Frequency</span><span class="v" id="detFreq">— Hz</span></div>
+        <div class="readout"><span class="k">Strength</span><span class="v" id="detStrengthVal">0%</span></div>
+        <div class="meter"><div id="strengthBar"></div></div>
+        <div class="readout" style="margin-top:16px;"><span class="k">Link state</span><span class="status-pill" id="linkState">Idle</span></div>
+
+        <div class="spacer-sm"></div>
+        <label>Spectrum <span class="val-inline">17 → 21 kHz</span></label>
+        <canvas id="scope" style="height:120px;"></canvas>
+      </div>
+      <div>
+        <div class="section-head"><span class="section-title">Pipeline</span></div>
+        <div class="pipeline" id="pipeline">
+          <div class="pipe-stage"><span class="lbl">Freq</span><span class="val" id="pFreq">—</span></div>
+          <span class="pipe-arrow">→</span>
+          <div class="pipe-stage"><span class="lbl">Bit</span><span class="val" id="pBit">—</span></div>
+          <span class="pipe-arrow">→</span>
+          <div class="pipe-stage"><span class="lbl">Sync</span><span class="val" id="pSync">—</span></div>
+          <span class="pipe-arrow">→</span>
+          <div class="pipe-stage"><span class="lbl">Binary</span><span class="val" id="pBinary">—</span></div>
+          <span class="pipe-arrow">→</span>
+          <div class="pipe-stage"><span class="lbl">Checksum</span><span class="val" id="pChecksum">—</span></div>
+          <span class="pipe-arrow">→</span>
+          <div class="pipe-stage"><span class="lbl">Text</span><span class="val" id="pText">—</span></div>
+        </div>
+        <div class="spacer-sm"></div>
+        <label>Received bits</label>
+        <div class="bitstream" id="rxBits">—</div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="section-head"><span class="section-title">Log</span></div>
+    <div class="log" id="eventLog"></div>
+  </details>
+
+  <!--
+    Hidden engine controls. main.js binds to these IDs on load; chat.js drives
+    the engine by clicking them in sequence (listen → stop → send → listen).
+    They are never shown to the user — the PTT and Connect buttons above are
+    the user-facing surface.
+  -->
+  <div class="chat-hide" aria-hidden="true">
+    <button id="listenBtn">listen</button>
+    <button id="stopListenBtn" disabled>stop</button>
+    <button id="sendBtn">send</button>
+    <!-- The engine writes decoded text here; chat.js observes it. -->
+    <div id="rxMessage">Waiting for transmission…</div>
+    <!-- The engine writes packet preview here; harmless to keep hidden. -->
+    <div id="txBits"></div>
+    <div id="txChecksum">—</div>
+    <div id="decodedBit">—</div>
+  </div>
+</div>
+
+<script src="main.js" defer></script>
+<script src="chat.js" defer></script>
+</body>
+</html>

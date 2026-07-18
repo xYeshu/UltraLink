@@ -410,41 +410,90 @@
     if (pBit) pBit.textContent = confident ? bit : "—";
   }
 
-  // ================= SPECTRUM SCOPE (cosmetic) =================
-  const sctx = scope ? scope.getContext("2d") : null;
+  // ================= WATERFALL SPECTROGRAM =================
+  // A scrolling time-frequency display: each animation frame, the existing image
+  // shifts down one row and a fresh spectrum slice is painted at the top. Time
+  // flows downward; the two carrier frequencies are marked with faint ticks so
+  // you can watch bits land in the air. Monochrome intensity, no color noise.
+  const sctx = scope ? scope.getContext("2d", { willReadFrequently: true }) : null;
+  let scopeReady = false;     // canvas sized + cleared, ready to paint into
+  const WF_SEARCH_MIN = 17000, WF_SEARCH_MAX = 21000; // Hz window we display
+  let wfBins = null, wfBinCount = 0;
+  let wfRowBuf = null;        // reused ImageData row buffer (avoids per-frame alloc)
+
   function resizeCanvas(){
     if (!scope) return;
-    scope.width = scope.clientWidth * devicePixelRatio;
-    scope.height = 70 * devicePixelRatio;
+    scope.width = Math.max(1, Math.floor(scope.clientWidth * devicePixelRatio));
+    scope.height = Math.max(1, Math.floor(scope.clientHeight * devicePixelRatio));
+    // (Re)initialize the bin→pixel column mapping and clear to background.
+    if(analyser){
+      wfBinCount = analyser.frequencyBinCount;
+      wfBins = new Float32Array(wfBinCount);
+    }
+    if(sctx){
+      sctx.fillStyle = "#ffffff";
+      sctx.fillRect(0, 0, scope.width, scope.height);
+    }
+    scopeReady = true;
   }
   if (scope) window.addEventListener("resize", resizeCanvas);
 
+  // Map an FFT bin to a canvas x-pixel within [0, w].
+  function wfBinToX(binIdx, w, binHz){
+    const hz = binIdx * binHz;
+    const t = (hz - WF_SEARCH_MIN) / (WF_SEARCH_MAX - WF_SEARCH_MIN);
+    return Math.max(0, Math.min(w - 1, Math.round(t * w)));
+  }
+
   function drawLoop(){
     if(!listening) return;
-    if(analyser){
-      const bins = new Float32Array(analyser.frequencyBinCount);
-      analyser.getFloatFrequencyData(bins);
+    if(analyser && sctx && scopeReady){
+      analyser.getFloatFrequencyData(wfBins);
       const sr = getCtx().sampleRate;
       const binHz = sr / analyser.fftSize;
-      const SEARCH_MIN = 17000, SEARCH_MAX = 21000;
-      const minBin = Math.floor(SEARCH_MIN / binHz);
-      const maxBin = Math.min(bins.length - 1, Math.ceil(SEARCH_MAX / binHz));
       const w = scope.width, h = scope.height;
-      sctx.fillStyle = "#061109"; sctx.fillRect(0,0,w,h);
-      const n = maxBin - minBin;
-      sctx.strokeStyle = "#5dff9a"; sctx.lineWidth = 1.5 * devicePixelRatio;
-      sctx.beginPath();
-      for(let i = 0; i < n; i++){
-        const db_i = bins[minBin + i];
-        const norm = Math.max(0, Math.min(1, (db_i + 100) / 70));
-        const x = (i/n) * w, y = h - norm * h;
-        if(i===0) sctx.moveTo(x,y); else sctx.lineTo(x,y);
+      if(h < 2) { scopeRAF = requestAnimationFrame(drawLoop); return; }
+
+      // 1) Scroll existing content down by one device-pixel row.
+      //    Copy rows [0 .. h-2] to [1 .. h-1]; leaves row 0 to be repainted.
+      sctx.drawImage(scope, 0, 0, w, h - 1, 0, 1, w, h - 1);
+
+      // 2) Paint the new top row directly into ImageData for speed.
+      //    Intensity is a monochrome grayscale: silent → white, energy → black.
+      if(!wfRowbuf || wfRowbuf.width !== w){
+        wfRowbuf = sctx.createImageData(w, 1);
       }
-      sctx.stroke();
+      const data = wfRowbuf.data;
+      // Fill white as the base.
+      for(let x = 0; x < w; x++){
+        const o = x * 4;
+        data[o] = data[o+1] = data[o+2] = 255; data[o+3] = 255;
+      }
+      // Paint energy across the displayed frequency window.
+      const minBin = Math.max(0, Math.floor(WF_SEARCH_MIN / binHz));
+      const maxBin = Math.min(wfBinCount - 1, Math.ceil(WF_SEARCH_MAX / binHz));
+      let prevX = -1;
+      for(let b = minBin; b <= maxBin; b++){
+        const db = wfBins[b];                                   // -Inf..0 dB
+        // Map [-100, -30] dB → [0, 1] intensity; clamp.
+        const t = Math.max(0, Math.min(1, (db + 100) / 70));
+        // Perceptual-ish curve so faint tones are still visible.
+        const intensity = Math.pow(t, 1.4);
+        const v = Math.round(255 - intensity * 255);           // 255 white .. 0 black
+        const x = wfBinToX(b, w, binHz);
+        if(x === prevX) continue;                              // skip dup columns
+        prevX = x;
+        const o = x * 4;
+        data[o] = data[o+1] = data[o+2] = v;
+      }
+      sctx.putImageData(wfRowbuf, 0, 0);
+
+      // 3) Carrier marker ticks on the top row (faint gray).
+      sctx.fillStyle = "#d4d4d4";
       [FREQ_0, FREQ_1].forEach(f => {
-        const idx = ((f - SEARCH_MIN) / (SEARCH_MAX - SEARCH_MIN)) * w;
-        sctx.strokeStyle = "rgba(255,180,84,0.5)"; sctx.lineWidth = 1;
-        sctx.beginPath(); sctx.moveTo(idx,0); sctx.lineTo(idx,h); sctx.stroke();
+        const t = (f - WF_SEARCH_MIN) / (WF_SEARCH_MAX - WF_SEARCH_MIN);
+        const x = Math.round(Math.max(0, Math.min(w - 1, t * w)));
+        sctx.fillRect(x, 0, 1, 1);
       });
     }
     scopeRAF = requestAnimationFrame(drawLoop);

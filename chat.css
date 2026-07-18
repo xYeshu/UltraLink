@@ -1,0 +1,168 @@
+/* ==========================================================================
+   UltraLink — chat page styles
+   Loaded only on chat.html, layered on top of style.css. Additive only.
+   ========================================================================== */
+
+/* Conversation log — the centerpiece of the chat page */
+.chat-log {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-height: 280px;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-log:empty::before {
+  content: "No messages yet. The link is one-way at a time — hold Transmit to send.";
+  color: var(--text-3);
+  font-size: 13px;
+  font-style: italic;
+  margin: auto;
+  text-align: center;
+  max-width: 40ch;
+  line-height: 1.5;
+}
+
+/* A single message row */
+.msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.msg .bubble {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  color: var(--text);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.msg .meta {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 4px;
+  padding: 0 4px;
+  letter-spacing: 0.04em;
+}
+
+/* Outgoing: right side, accent border */
+.msg.out { align-self: flex-end; align-items: flex-end; }
+.msg.out .bubble {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+  border-bottom-right-radius: 2px;
+}
+
+/* Incoming: left side */
+.msg.in { align-self: flex-start; }
+.msg.in .bubble { border-bottom-left-radius: 2px; }
+
+/* Status messages (system notices inline in the log) */
+.msg.system { align-self: center; max-width: 90%; }
+.msg.system .bubble {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-style: italic;
+  padding: 2px 8px;
+}
+.msg.system .meta { display: none; }
+
+/* Push-to-transmit button — big, full width, stateful */
+.ptt {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius);
+  border: 1px solid var(--text);
+  background: var(--text);
+  color: var(--bg);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  text-transform: uppercase;
+  user-select: none;
+}
+.ptt:hover:not(:disabled) { background: #333; border-color: #333; }
+.ptt:active:not(:disabled) { transform: translateY(1px); }
+.ptt.transmitting {
+  background: var(--bg-elev);
+  color: var(--text);
+  border-color: var(--text);
+}
+.ptt:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* The big link status banner above the log */
+.chat-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+.chat-status .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-3);
+  flex-shrink: 0;
+}
+.chat-status.listening .dot { background: var(--ok); }
+.chat-status.transmitting .dot { background: var(--err); animation: pulse 1s ease-in-out infinite; }
+.chat-status.offline .dot { background: var(--text-3); }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Compose row */
+.compose {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 10px;
+}
+.compose input[type=text] { flex: 1; }
+
+/* Collapsible diagnostics (waterfall + pipeline) — hidden by default on chat */
+.chat-diagnostics {
+  margin-top: 24px;
+}
+.chat-diagnostics summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  outline: none;
+}
+.chat-diagnostics summary:hover { color: var(--text-2); }
+.chat-diagnostics[open] summary { margin-bottom: 14px; }
+.chat-diagnostics .diag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 768px) {
+  .chat-diagnostics .diag-grid { grid-template-columns: 1fr; }
+}
+
+/* Hide the engine's raw received-message box on chat — we use the log instead */
+.chat-hide { display: none !important; }
